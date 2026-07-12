@@ -1,6 +1,6 @@
 import { defineSchedule } from "eve/schedules";
 
-import { sendProactiveMessage } from "../lib/bridge-client";
+import { sendProactiveMessage } from "../channels/sendblue";
 import { getLondonClock, isLondonTime } from "../lib/time";
 
 const SCHEDULE_NAME = "wind-down";

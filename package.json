@@ -15,8 +15,12 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@chat-adapter/state-memory": "^4.33.0",
+    "@chat-adapter/state-redis": "^4.33.0",
     "@vercel/connect": "0.2.2",
     "ai": "^7.0.0",
+    "chat": "^4.33.0",
+    "chat-adapter-sendblue": "^0.2.0",
     "eve": "^0.22.5",
     "zod": "4.4.3"
   },

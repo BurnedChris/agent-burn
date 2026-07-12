@@ -283,41 +283,6 @@ export async function requestBridge<TSchema extends z.ZodType>(
   return parsed.data;
 }
 
-const proactiveMessageInputSchema = z.object({
-  message: z.string().trim().min(1).max(500),
-  idempotencyKey: z
-    .string()
-    .min(1)
-    .max(200)
-    .refine((value) => !/[\r\n]/u.test(value)),
-});
-
-const proactiveMessageResponseSchema = z.object({
-  accepted: z.literal(true),
-});
-
-export async function sendProactiveMessage(input: {
-  message: string;
-  idempotencyKey: string;
-}): Promise<void> {
-  const parsed = proactiveMessageInputSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new BridgeClientError(
-      "bridge_invalid_request",
-      "The proactive message or idempotency key is invalid.",
-      false,
-    );
-  }
-
-  await requestBridge({
-    path: "/v1/messages",
-    method: "POST",
-    body: { message: parsed.data.message },
-    responseSchema: proactiveMessageResponseSchema,
-    idempotencyKey: parsed.data.idempotencyKey,
-  });
-}
-
 export function toBridgeToolError(error: unknown): BridgeToolError {
   if (error instanceof BridgeClientError) {
     return {

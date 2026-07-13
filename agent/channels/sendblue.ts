@@ -23,6 +23,7 @@ import {
 import type { SessionAuthContext } from "eve/context";
 import { z } from "zod";
 
+import { recordBurnModeEvent } from "../lib/db/events";
 import { createBurnModeChatState } from "../lib/chat-state";
 import { ConnectSendblueAdapter } from "../lib/connect-sendblue-adapter";
 
@@ -73,6 +74,14 @@ const pendingTextBatchSchema = z.object({
 type PendingTextRequest = z.infer<typeof pendingTextRequestSchema>;
 type PendingTextBatch = z.infer<typeof pendingTextBatchSchema>;
 type ProactiveContext = z.infer<typeof proactiveContextSchema>;
+
+function isDefiniteProviderRejection(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return false;
+  }
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" && status >= 400 && status < 500;
+}
 
 const PENDING_MULTI_INPUT_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
 const PROACTIVE_DELIVERY_TTL_MS = 72 * 60 * 60 * 1_000;
@@ -494,9 +503,6 @@ async function processInboundBatch(
         await state
           .setIfNotExists(key, pendingBatch, PENDING_MULTI_INPUT_TTL_MS)
           .catch(() => undefined);
-        await enqueueInboundMessages(state, thread.id, messages).catch(
-          () => undefined,
-        );
         throw error;
       }
       await waitForSessionBoundary(
@@ -516,9 +522,6 @@ async function processInboundBatch(
           "For safety, answer every request separately—one per line, like `1: approve` and `2: deny`.",
         );
       } catch (error) {
-        await enqueueInboundMessages(bot.getState(), thread.id, messages).catch(
-          () => undefined,
-        );
         throw error;
       }
       return;
@@ -561,9 +564,6 @@ async function processInboundBatch(
         )
           .catch(() => undefined);
     }
-    await enqueueInboundMessages(state, thread.id, messages).catch(
-      () => undefined,
-    );
     throw error;
   }
   await waitForSessionBoundary(session, thread.id, turnStartedAfterMs);
@@ -597,7 +597,20 @@ bot.onDirectMessage(
         const queued = await drainInboundQueue(state, thread.id);
         if (queued.length === 0) return;
 
-        await processInboundBatch(thread, queued, queued.at(-1)!.author.userId);
+        try {
+          await processInboundBatch(
+            thread,
+            queued,
+            queued.at(-1)!.author.userId,
+          );
+        } catch (error) {
+          // dequeue is destructive; one outer recovery point prevents state
+          // reads, provider calls, or Eve failures from losing the whole batch.
+          await enqueueInboundMessages(state, thread.id, queued).catch(
+            () => undefined,
+          );
+          throw error;
+        }
         renewal.assertHeld();
       }
     } finally {
@@ -620,6 +633,9 @@ export async function sendProactiveMessage(input: {
 
   const state = bot.getState();
   const deliveryKey = `burn-mode:delivery:${parsed.idempotencyKey}`;
+  // get() clears expired state, while the atomic insert below keeps this safe
+  // when hosted cron invocations race.
+  if ((await state.get(deliveryKey)) !== null) return;
   const claimed = await state.setIfNotExists(
     deliveryKey,
     { claimedAt: new Date().toISOString() },
@@ -638,6 +654,12 @@ export async function sendProactiveMessage(input: {
       proactiveContext,
       PROACTIVE_DELIVERY_TTL_MS,
     );
+    await recordBurnModeEvent({
+      correlationKey: parsed.idempotencyKey,
+      data: { message: parsed.message },
+      eventType: "check_in.delivery_attempted",
+      source: "sendblue",
+    });
   } catch (error) {
     // No provider call has happened yet, so this claim is safe to release.
     await state.delete(deliveryKey).catch(() => undefined);
@@ -646,7 +668,19 @@ export async function sendProactiveMessage(input: {
 
   // The claim deliberately survives ambiguous provider failures so a cron
   // retry cannot double-text Christopher after Sendblue accepted the request.
-  await sendblueAdapter.postMessage(threadId, parsed.message);
+  try {
+    await sendblueAdapter.postMessage(threadId, parsed.message);
+  } catch (error) {
+    if (isDefiniteProviderRejection(error)) {
+      // A received 4xx means Sendblue rejected the request before accepting a
+      // message. Release both rows so corrected credentials/content can retry.
+      await Promise.all([
+        state.delete(deliveryKey),
+        state.delete(proactiveContextKey(threadId)),
+      ]).catch(() => undefined);
+    }
+    throw error;
+  }
 }
 
 export default channel;

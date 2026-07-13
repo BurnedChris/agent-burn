@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783893643439,
+      "tag": "0000_powerful_firebrand",
+      "breakpoints": true
+    }
+  ]
+}

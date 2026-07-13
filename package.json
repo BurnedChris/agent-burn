@@ -9,6 +9,10 @@
   "scripts": {
     "build": "eve build",
     "check": "npm run typecheck && npm run build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:verify": "tsx scripts/verify-postgres.ts",
     "dev": "eve dev",
     "info": "eve info",
     "start": "eve start",
@@ -16,17 +20,22 @@
   },
   "dependencies": {
     "@chat-adapter/state-memory": "^4.33.0",
-    "@chat-adapter/state-redis": "^4.33.0",
     "@vercel/connect": "0.2.2",
+    "@vercel/functions": "^3.7.5",
     "ai": "^7.0.0",
     "chat": "^4.33.0",
     "chat-adapter-sendblue": "^0.2.0",
+    "drizzle-orm": "^0.45.2",
     "eve": "^0.22.5",
+    "pg": "^8.22.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "24.x",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
     "microsandbox": "^0.5.10",
+    "tsx": "^4.23.0",
     "typescript": "7.0.2"
   },
   "overrides": {

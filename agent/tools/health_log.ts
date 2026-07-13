@@ -6,6 +6,7 @@ import {
   requestBridge,
   toBridgeToolError,
 } from "../lib/bridge-client";
+import { toObjectToolSchema } from "../lib/tool-schema";
 
 const isoDateTimeSchema = z
   .string()
@@ -28,7 +29,7 @@ const noteSchema = z.string().trim().min(1).max(500);
 const unitSchema = z.string().trim().min(1).max(32);
 const valueSchema = z.number().finite().min(-1_000_000).max(1_000_000);
 
-const inputSchema = z
+const runtimeInputSchema = z
   .discriminatedUnion("action", [
     z.object({
       action: z.literal("append"),
@@ -76,6 +77,7 @@ const inputSchema = z
       });
     }
   });
+const inputSchema = toObjectToolSchema(runtimeInputSchema);
 
 const bridgeHealthLogSchema = z.object({
   id: logIdSchema,
@@ -137,9 +139,14 @@ export default defineTool({
     "Append or list Christopher's self-reported routine and health observations through the private Mac bridge. Record facts only; never diagnose, infer a condition, or recommend treatment.",
   inputSchema,
   outputSchema,
-  approval: ({ toolInput }) =>
-    toolInput?.action === "list" ? "not-applicable" : "user-approval",
-  async execute(input, ctx) {
+  approval: ({ toolInput }) => {
+    const parsed = runtimeInputSchema.safeParse(toolInput);
+    return parsed.success && parsed.data.action === "list"
+      ? "not-applicable"
+      : "user-approval";
+  },
+  async execute(rawInput, ctx) {
+    const input = runtimeInputSchema.parse(rawInput);
     try {
       if (input.action === "list") {
         const result = await requestBridge({

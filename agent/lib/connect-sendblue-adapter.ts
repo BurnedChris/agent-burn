@@ -227,7 +227,11 @@ export class ConnectSendblueAdapter
     };
     delegateWithDirectMessageSupport.isDM = (threadId) => this.isDM(threadId);
 
-    await delegate.initialize(this.requireChat());
+    // Eve rebuilds Chat SDK threads inside durable workflow callbacks without
+    // initializing the inbound webhook bot in that fresh function instance.
+    // The Sendblue delegate only needs Chat for inbound dispatch and logging;
+    // outbound delivery can safely use its already-configured SDK directly.
+    if (this.chat) await delegate.initialize(this.chat);
     this.credentials = credentials;
     this.delegate = delegate;
   }

@@ -6,6 +6,7 @@ import {
   requestBridge,
   toBridgeToolError,
 } from "../lib/bridge-client";
+import { toObjectToolSchema } from "../lib/tool-schema";
 
 const isoDateTimeSchema = z
   .string()
@@ -16,7 +17,7 @@ const eventIdSchema = z.string().trim().min(1).max(200);
 const titleSchema = z.string().trim().min(1).max(160);
 const calendarNameSchema = z.string().trim().min(1).max(80);
 
-const inputSchema = z
+const runtimeInputSchema = z
   .discriminatedUnion("action", [
     z.object({
       action: z.literal("list"),
@@ -48,6 +49,7 @@ const inputSchema = z
       });
     }
   });
+const inputSchema = toObjectToolSchema(runtimeInputSchema);
 
 const bridgeCalendarBlockSchema = z.object({
   id: eventIdSchema,
@@ -106,9 +108,14 @@ export default defineTool({
     "List calendar blocks or create a private focus/routine block through Christopher's Mac bridge. Creation never adds attendees or sends invitations. This tool cannot delete events.",
   inputSchema,
   outputSchema,
-  approval: ({ toolInput }) =>
-    toolInput?.action === "list" ? "not-applicable" : "user-approval",
-  async execute(input, ctx) {
+  approval: ({ toolInput }) => {
+    const parsed = runtimeInputSchema.safeParse(toolInput);
+    return parsed.success && parsed.data.action === "list"
+      ? "not-applicable"
+      : "user-approval";
+  },
+  async execute(rawInput, ctx) {
+    const input = runtimeInputSchema.parse(rawInput);
     try {
       if (input.action === "list") {
         const result = await requestBridge({

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "eve build",
-    "check": "npm run typecheck && npm run build",
+    "check": "npm test && npm run typecheck && npm run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
@@ -16,6 +16,7 @@
     "dev": "eve dev",
     "info": "eve info",
     "start": "eve start",
+    "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc"
   },
   "dependencies": {

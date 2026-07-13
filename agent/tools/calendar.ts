@@ -105,7 +105,7 @@ function minimizeBlock(block: BridgeCalendarBlock) {
 
 export default defineTool({
   description:
-    "List calendar blocks or create a private focus/routine block through Christopher's Mac bridge. Creation never adds attendees or sends invitations. This tool cannot delete events.",
+    "List calendar blocks or create a private focus/routine block through Christopher's Mac bridge. For action=list provide from and to. For action=create provide title, start, and end. Creation never adds attendees or sends invitations. This tool cannot delete events.",
   inputSchema,
   outputSchema,
   approval: ({ toolInput }) => {

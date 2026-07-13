@@ -114,7 +114,7 @@ function minimizeReminder(reminder: BridgeReminder) {
 
 export default defineTool({
   description:
-    "List, create, or complete Christopher's reminders through the private Mac bridge. Prefer a clear short title. This tool never deletes reminders.",
+    "List, create, or complete Christopher's reminders through the private Mac bridge. For action=create provide title. For action=complete provide id. For action=list, filters are optional. Prefer a clear short title. This tool never deletes reminders.",
   inputSchema,
   outputSchema,
   approval: ({ toolInput }) => {

@@ -136,7 +136,7 @@ function minimizeLog(log: BridgeHealthLog) {
 
 export default defineTool({
   description:
-    "Append or list Christopher's self-reported routine and health observations through the private Mac bridge. Record facts only; never diagnose, infer a condition, or recommend treatment.",
+    "Append or list Christopher's self-reported routine and health observations through the private Mac bridge. For action=append provide kind plus a value or note. For action=list, filters are optional. Record facts only; never diagnose, infer a condition, or recommend treatment.",
   inputSchema,
   outputSchema,
   approval: ({ toolInput }) => {

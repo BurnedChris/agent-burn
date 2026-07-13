@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { z } from "zod";
 
 import calendar from "../agent/tools/calendar";
 import healthLog from "../agent/tools/health_log";
 import reminders from "../agent/tools/reminders";
+import { toObjectToolSchema } from "../agent/lib/tool-schema";
 import {
   ConnectSendblueAdapter,
   encodeSendblueThreadId,
@@ -28,7 +30,31 @@ test("custom tool input schemas have an object root for AI Gateway", () => {
       "object",
       `${name} must expose input_schema.type = object`,
     );
+    for (const unsupported of ["oneOf", "allOf", "anyOf"] as const) {
+      assert.equal(
+        unsupported in toolInputSchema(tool),
+        false,
+        `${name} must not expose top-level ${unsupported}`,
+      );
+    }
   }
+});
+
+test("tool schemas fail closed for unsupported root combinators", () => {
+  assert.throws(
+    () =>
+      toObjectToolSchema(
+        z.union([z.object({ first: z.string() }), z.object({ second: z.string() })]),
+      ),
+    /top-level allOf or anyOf/u,
+  );
+  assert.throws(
+    () =>
+      toObjectToolSchema(
+        z.intersection(z.object({ first: z.string() }), z.object({ second: z.string() })),
+      ),
+    /top-level allOf or anyOf/u,
+  );
 });
 
 test("Sendblue can deliver from a durable callback without webhook initialization", async () => {
